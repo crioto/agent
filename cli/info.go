@@ -29,7 +29,7 @@ var (
 
 type hostStat struct {
 	Host string `json:"host"`
-	CPU  struct {
+	CPU struct {
 		Model     string      `json:"model"`
 		CoreCount int         `json:"coreCount"`
 		Idle      interface{} `json:"idle"`
@@ -49,7 +49,7 @@ type hostStat struct {
 type quotaUsage struct {
 	Container string `json:"container"`
 	CPU       int    `json:"cpu"`
-	Disk      struct {
+	Disk struct {
 		Home   int `json:"home"`
 		Opt    int `json:"opt"`
 		Rootfs int `json:"rootfs"`
@@ -293,25 +293,54 @@ func grep(str, filename string) string {
 func Info(command, host, interval string) {
 	if command == "ipaddr" {
 		fmt.Println(net.GetIp())
-		return
 	} else if command == "ports" {
 		for k := range usedPorts() {
 			fmt.Println(k)
 		}
-	}
 
-	initdb()
+	} else if command == "os" {
+		out, err := exec.Command("/bin/bash", "-c", "cat /etc/*release").Output()
 
-	switch command {
-	case "quota":
-		if len(host) == 0 {
-			log.Error("Usage: subutai info <quota|system> <hostname>")
+		if log.Check(log.ErrorLevel, "Determining OS name", err) {
+
+			fmt.Println("Failed to determine OS name: " + err.Error())
+
+			return
 		}
-		fmt.Println(quota(host))
-	case "system":
-		host, err := os.Hostname()
-		log.Check(log.DebugLevel, "Getting hostname of the system", err)
-		fmt.Println(sysLoad(host))
+
+		output := strings.Split(string(out), "\n")
+
+		var version string
+
+		for _, line := range output {
+
+			if strings.HasPrefix(line, "DISTRIB_DESCRIPTION") {
+
+				version = strings.Trim(strings.Replace(line, "DISTRIB_DESCRIPTION=", "", 1), "\"")
+
+				break
+			}
+		}
+
+		fmt.Printf("%s\n", version)
+	} else if command == "test" {
+		fmt.Println("All is set, boss!")
+	} else {
+		//here we keep all commands that need influx db
+
+		initdb()
+
+		switch command {
+		case "quota":
+			if len(host) == 0 {
+				log.Error("Usage: subutai info <quota|system> <hostname>")
+			}
+			fmt.Println(quota(host))
+		case "system":
+			host, err := os.Hostname()
+			log.Check(log.DebugLevel, "Getting hostname of the system", err)
+			fmt.Println(sysLoad(host))
+		}
 	}
 }
 
